@@ -2,11 +2,14 @@
 #include <pcap/pcap.h>
 #include <netinet/ip.h>
 #include <arpa/inet.h>
+#include <netinet/tcp.h>
 
 void got_packet(u_char *args, const struct pcap_pkthdr *header, const u_char *packet) {
 	
 	static int n = 1;
 	struct ip *ip_header = (struct ip *)(packet + 14);
+	int ip_header_length = ip_header->ip_hl * 4;
+	struct tcphdr *tcp_header = (struct tcphdr *)(packet + 14 + ip_header_length);
 
 	if (ip_header->ip_v != 4) {
 		printf("\nPacket %d is not an IP packet. Dropping it...\n", n, ip_header->ip_p);
@@ -30,11 +33,16 @@ void got_packet(u_char *args, const struct pcap_pkthdr *header, const u_char *pa
 				break;
 		}
 
+		char *syn_flag = (tcp_header->th_flags & TH_SYN) ? "set" : "unset";
+
 		printf("\nPacket %d captured.\n", n);
 		printf("	Length: %d\n", header->len);
 		printf("	Source IP: %s\n", inet_ntoa(ip_header->ip_src));
 		printf("	Destination IP: %s\n", inet_ntoa(ip_header->ip_dst));
 		printf("	Protocol: %s (Number: %d)\n", protocol, ip_header->ip_p);
+		printf("	Source port: %d\n", ntohs(tcp_header->th_sport));
+		printf("	Destination port: %d\n", ntohs(tcp_header->th_dport));
+		printf("	SYN flag: %s\n", syn_flag);
 		n++;
 	}
 }
@@ -84,9 +92,20 @@ int main() {
 		return 1;
 	}
 
+
+	struct bpf_program fp;
+	int compile = pcap_compile(handle, &fp, "tcp", 1, PCAP_NETMASK_UNKNOWN);
+	int filter = pcap_setfilter(handle, &fp);
+	if (filter == 0) {
+		puts("Compiling succeeded!\n");
+	} else {
+		puts("Compiling failed...\n");
+		return -1;
+	}
+
 	printf("Starting capture...\n\n");
 
-	pcap_loop(handle, 5, got_packet, NULL);
+	pcap_loop(handle, 20, got_packet, NULL);
 
 
 	pcap_close(handle);
