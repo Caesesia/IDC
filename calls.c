@@ -1,8 +1,42 @@
 #include <stdio.h>
 #include <pcap/pcap.h>
+#include <netinet/ip.h>
+#include <arpa/inet.h>
 
 void got_packet(u_char *args, const struct pcap_pkthdr *header, const u_char *packet) {
-	printf("Packet captured! Length: %d\n", header->len);
+	
+	static int n = 1;
+	struct ip *ip_header = (struct ip *)(packet + 14);
+
+	if (ip_header->ip_v != 4) {
+		printf("\nPacket %d is not an IP packet. Dropping it...\n", n, ip_header->ip_p);
+		n++;
+		return;
+	} else {
+
+		char *protocol;
+		switch (ip_header->ip_p) {
+			case 1:
+				protocol = "ICMP";
+				break;
+			case 6:
+				protocol = "TCP";
+				break;
+			case 17:
+				protocol = "UDP";
+				break;
+			default:
+				protocol = "Other";
+				break;
+		}
+
+		printf("\nPacket %d captured.\n", n);
+		printf("	Length: %d\n", header->len);
+		printf("	Source IP: %s\n", inet_ntoa(ip_header->ip_src));
+		printf("	Destination IP: %s\n", inet_ntoa(ip_header->ip_dst));
+		printf("	Protocol: %s (Number: %d)\n", protocol, ip_header->ip_p);
+		n++;
+	}
 }
 
 int main() {
@@ -15,7 +49,7 @@ int main() {
 	pcap_t *handle = pcap_create(device, errbuf);
 
 	// Add timeout to capture after 1s even if buffer isn't filled
-	pcap_set_timeout(handle, 1000);
+	pcap_set_timeout(handle, 500);
 	
 	int activate = pcap_activate(handle);
 
@@ -51,7 +85,9 @@ int main() {
 	}
 
 	printf("Starting capture...\n\n");
+
 	pcap_loop(handle, 5, got_packet, NULL);
+
 
 	pcap_close(handle);
 	pcap_freealldevs(alldevs);
