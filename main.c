@@ -1,8 +1,9 @@
 #include <stdio.h>
+#include <unistd.h>
 #include <pcap/pcap.h>
 #include <netinet/ip.h>
-#include <arpa/inet.h>
 #include <netinet/tcp.h>
+#include <arpa/inet.h>
 
 void got_packet(u_char *args, const struct pcap_pkthdr *header, const u_char *packet) {
 	
@@ -103,7 +104,8 @@ int main() {
 		return -1;
 	}
 
-	printf("Starting capture...\n\n");
+	printf("Starting capture in 5 seconds...\n\n");
+	sleep(5);
 
 	pcap_loop(handle, 20, got_packet, NULL);
 
