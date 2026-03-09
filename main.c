@@ -1,11 +1,18 @@
+// List of libraries
 #include <stdio.h>
+#include <string.h>
 #include <unistd.h>
 #include <pcap/pcap.h>
 #include <netinet/ip.h>
 #include <netinet/tcp.h>
 #include <arpa/inet.h>
 
+
+
+// Declare function to capture packets
 void got_packet(u_char *args, const struct pcap_pkthdr *header, const u_char *packet) {
+
+	(void)args;
 	
 	static int n = 1;
 	struct ip *ip_header = (struct ip *)(packet + 14);
@@ -13,7 +20,7 @@ void got_packet(u_char *args, const struct pcap_pkthdr *header, const u_char *pa
 	struct tcphdr *tcp_header = (struct tcphdr *)(packet + 14 + ip_header_length);
 
 	if (ip_header->ip_v != 4) {
-		printf("\nPacket %d is not an IP packet. Dropping it...\n", n, ip_header->ip_p);
+		printf("\nPacket %d is not an IP packet. Dropping it...\n", n);
 		n++;
 		return;
 	} else {
@@ -45,24 +52,25 @@ void got_packet(u_char *args, const struct pcap_pkthdr *header, const u_char *pa
 		printf("	Destination port: %d\n", ntohs(tcp_header->th_dport));
 		printf("	SYN flag: %s\n", syn_flag);
 		n++;
+		sleep(1);
 	}
 }
 
 int main() {
+
+	// Declare error buffer size to 256 iirc
 	char errbuf[PCAP_ERRBUF_SIZE];
-	const char *device = "wlp61s0";
+
+	// Set user input device buffer size
+	char device[33];
 	
+	// Declare all devices for further processing
 	pcap_if_t *alldevs;
+
+	// Find all devices and put them in a variable
 	int dev_list = pcap_findalldevs(&alldevs, errbuf);
-	
-	pcap_t *handle = pcap_create(device, errbuf);
 
-	// Add timeout to capture after 1s even if buffer isn't filled
-	pcap_set_timeout(handle, 500);
-	
-	int activate = pcap_activate(handle);
-
-	// Device listing
+	// List all devices found
 	if (dev_list != 0) {
 		puts("Error finding devices to listen on.");
 		printf("Error : %s\n", errbuf);
@@ -75,6 +83,36 @@ int main() {
 			n++;
 		}
 	}
+
+	// User input device
+	puts("Select a device from the list : ");
+	scanf("%32s", device);
+
+	// Initialize variable that checks if user device is found
+	int dev_found = 0;
+
+	// Compare user input device with each device from list
+	for (pcap_if_t *i = alldevs; i != NULL; i = i->next) {
+		if (strcmp(device, i->name) == 0) {
+			dev_found = 1;
+			break;
+		}
+	}
+
+	// Check if user input device was found in device list
+	if (!dev_found) {
+		printf("\nError : device %s not found in list of devices.\n", device);
+		return 1;
+	}
+
+	// Create the handle
+	pcap_t *handle = pcap_create(device, errbuf);
+
+	// Add timeout to capture after 0.5s even if buffer isn't filled
+	pcap_set_timeout(handle, 500);
+
+	// Activate the handle
+	int activate = pcap_activate(handle);
 	
 	// Handle creation
 	if (handle == NULL) {
@@ -95,7 +133,7 @@ int main() {
 
 
 	struct bpf_program fp;
-	int compile = pcap_compile(handle, &fp, "tcp", 1, PCAP_NETMASK_UNKNOWN);
+	pcap_compile(handle, &fp, "tcp", 1, PCAP_NETMASK_UNKNOWN);
 	int filter = pcap_setfilter(handle, &fp);
 	if (filter == 0) {
 		puts("Compiling succeeded!\n");
@@ -104,13 +142,19 @@ int main() {
 		return -1;
 	}
 
+	// Slow down stdout
 	printf("Starting capture in 5 seconds...\n\n");
 	sleep(5);
 
+	// Capture packets 20 times
 	pcap_loop(handle, 20, got_packet, NULL);
 
-
+	// Close the handle
 	pcap_close(handle);
+
+	// Free all devices cleanly
 	pcap_freealldevs(alldevs);
+
+	// Return with success
 	return 0;
 }
