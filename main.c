@@ -12,19 +12,23 @@
 // Declare function to capture packets
 void got_packet(u_char *args, const struct pcap_pkthdr *header, const u_char *packet) {
 
+	// Kill unusued args warning
 	(void)args;
-	
+
+	// Initialize packet looping
 	static int n = 1;
 	struct ip *ip_header = (struct ip *)(packet + 14);
 	int ip_header_length = ip_header->ip_hl * 4;
 	struct tcphdr *tcp_header = (struct tcphdr *)(packet + 14 + ip_header_length);
 
+	// Check IPv4 header, drop if false
 	if (ip_header->ip_v != 4) {
 		printf("\nPacket %d is not an IP packet. Dropping it...\n", n);
 		n++;
 		return;
 	} else {
 
+		// Check packet protocol
 		char *protocol;
 		switch (ip_header->ip_p) {
 			case 1:
@@ -41,8 +45,10 @@ void got_packet(u_char *args, const struct pcap_pkthdr *header, const u_char *pa
 				break;
 		}
 
+		// Check SYN flag
 		char *syn_flag = (tcp_header->th_flags & TH_SYN) ? "set" : "unset";
 
+		// Print packet info
 		printf("\nPacket %d captured.\n", n);
 		printf("	Length: %d\n", header->len);
 		printf("	Source IP: %s\n", inet_ntoa(ip_header->ip_src));
@@ -85,7 +91,7 @@ int main() {
 	}
 
 	// User input device
-	puts("Select a device from the list : ");
+	puts("Enter a device from the list [name] : ");
 	scanf("%32s", device);
 
 	// Initialize variable that checks if user device is found
@@ -131,10 +137,32 @@ int main() {
 		return 1;
 	}
 
+	// Initialize port filtering
+	char filtered[33];
+
+	// Initialize and clean garbage from user_port
+	char user_port[6] = {0};
+
+	// Prompt user to enter a port
+	puts("Enter a port to filter [number] (default 'tcp') : ");
+	scanf("%5s", user_port);
+
+	// Check if user inputted something
+	if (strlen(user_port) == 0) {
+		// Resort to default "tcp" if no input
+		snprintf(filtered, sizeof(filtered), "tcp");
+	} else {
+		// Append user input if not empty
+		snprintf(filtered, sizeof(filtered), "port %s", user_port);
+	}
 
 	struct bpf_program fp;
-	pcap_compile(handle, &fp, "tcp", 1, PCAP_NETMASK_UNKNOWN);
+	pcap_compile(handle, &fp, filtered, 1, PCAP_NETMASK_UNKNOWN);
+	
+	// Initialize filter variable with setfilter() and user input
 	int filter = pcap_setfilter(handle, &fp);
+
+	// Check setfilter() return code
 	if (filter == 0) {
 		puts("Compiling succeeded!\n");
 	} else {
