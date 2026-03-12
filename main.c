@@ -15,7 +15,7 @@ void got_packet(u_char *args, const struct pcap_pkthdr *header, const u_char *pa
 	// Kill unusued args warning
 	(void)args;
 
-	// Initialize packet looping
+	// Initialize packet inspection
 	static int n = 1;
 	struct ip *ip_header = (struct ip *)(packet + 14);
 	int ip_header_length = ip_header->ip_hl * 4;
@@ -58,6 +58,7 @@ void got_packet(u_char *args, const struct pcap_pkthdr *header, const u_char *pa
 		printf("	Destination port: %d\n", ntohs(tcp_header->th_dport));
 		printf("	SYN flag: %s\n", syn_flag);
 		n++;
+
 		sleep(1);
 	}
 }
