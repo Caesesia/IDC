@@ -1,5 +1,5 @@
-# meet IDC, a golmonic monitoring and packet filtering IDS
+# meet IDC, a simple IDS for capturing, monitoring and filtering IP packets
 
-i'm just learning C so this will _definitely_ be a relatively shitty project with shitty code and memory management
+i'm just learning C so this will _definitely_ be a relatively amateurish project with shitty code and memory management
 
-anyway, feel free to enjoy this shitshow and thank you for your time
+anyway, feel free to enjoy this and thank you for your time
